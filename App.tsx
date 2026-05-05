@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
@@ -22,8 +22,10 @@ const ScrollManager = () => {
   const { pathname } = useLocation();
   
   useEffect(() => {
-    // Immediate scroll to top
-    window.scrollTo(0, 0);
+    // Always unlock scrolling when a route is active. This prevents the loader lock
+    // from surviving if an animation is interrupted on mobile/Safari.
+    document.body.classList.remove('is-locked');
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
     
     // Safety check for ScrollTrigger
     if (typeof ScrollTrigger !== 'undefined') {
@@ -72,10 +74,17 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Standardized scroll lock
+    // Lock only while the intro loader is visible, with a fail-safe unlock so
+    // scrolling never gets stuck if GSAP/onComplete is interrupted.
     document.body.classList.add('is-locked');
+    const fallbackUnlock = window.setTimeout(() => {
+      document.body.classList.remove('is-locked');
+      setIsLoading(false);
+      if (typeof ScrollTrigger !== 'undefined') ScrollTrigger.refresh(true);
+    }, 5000);
 
     return () => {
+      window.clearTimeout(fallbackUnlock);
       document.body.classList.remove('is-locked');
     };
   }, []);
@@ -93,9 +102,9 @@ const App: React.FC = () => {
   };
 
   return (
-    <Router>
+    <BrowserRouter basename={import.meta.env.BASE_URL}>
       <AppContent isLoading={isLoading} onComplete={handleLoaderComplete} />
-    </Router>
+    </BrowserRouter>
   );
 };
 
